@@ -1,6 +1,6 @@
 {
     "name": "shadow/access",
-    "description": "IU Login (CAS, OIDC) and access control (ACM) middleware.",
+    "description": "IU Login (CAS, OIDC) and access control (ACM) middleware, with IU Guest account resolution support (OIDC).",
     "type": "library",
     "authors": [
         {
@@ -9,9 +9,12 @@
         }
     ],
     "require": {
-        "php": "~8.4.0",
+        "php": ">=8.2 <8.5",
         "apereo/phpcas": "~1.6.0",
-        "league/container": "^5.1"
+        "league/container": "^5.1",
+        "jumbojett/openid-connect-php": "^1.0",
+        "guzzlehttp/guzzle": "^7.10",
+        "laminas/laminas-diactoros": "^3.8"
     },
     "require-dev": {
         "phpunit/phpunit": "^13.0"

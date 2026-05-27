@@ -1,19 +1,12 @@
 <?php declare(strict_types=1);
 
-namespace Shadow\Access\Authentication;
+namespace Shadow\Access\Authentication\CAS;
 
 use Psr\Log\LoggerInterface;
 
-final class CasAuthenticationConfiguration implements AuthenticationConfigurationInterface
+final class CasConfiguration
 {
-    private const AuthenticationProtocol Protocol = AuthenticationProtocol::CAS;
-
-    public string $protocol = '2.0' {
-        set {
-            // TODO: validate
-            $this->protocol = $value;
-        }
-    }
+    public string $protocol = '2.0';
 
     public string $host;
 
@@ -41,10 +34,5 @@ final class CasAuthenticationConfiguration implements AuthenticationConfiguratio
         $this->serviceBaseUrl = $serviceBaseUrl;
         $this->caFile = $caFile;
         $this->logger = $logger;
-    }
-
-    public function getAuthenticationProtocol(): AuthenticationProtocol
-    {
-        return self::Protocol;
     }
 }
