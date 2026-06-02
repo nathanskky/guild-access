@@ -19,8 +19,9 @@ final readonly class OidcAuthenticationService
 
         $client->addScope($configuration->scopes);
         $client->setCertPath($configuration->certPath);
-
-        // TODO: additional client config
+        $client->setVerifyHost($configuration->verifyHost);
+        $client->setVerifyPeer($configuration->verifyPeer);
+        $client->setHttpUpgradeInsecureRequests($configuration->httpUpgradeInsecureRequests);
 
         $this->client = $client;
     }
@@ -37,7 +38,14 @@ final readonly class OidcAuthenticationService
         }
     }
 
-    public function getVerifiedClaims(string $attribute = null)
+    /**
+     * @throws OidcClientException
+     */
+    public function requestUserInfo(string $attribute = null) {
+        return $this->client?->requestUserInfo($attribute);
+    }
+
+    public function getVerifiedClaims(?string $attribute = null)
     {
         return $this->client?->getVerifiedClaims($attribute);
     }
