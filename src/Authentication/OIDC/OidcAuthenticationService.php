@@ -19,6 +19,7 @@ final readonly class OidcAuthenticationService
 
         $client->addScope($configuration->scopes);
         $client->setCertPath($configuration->certPath);
+        $client->setRedirectURL($configuration->redirectUrl);
         $client->setVerifyHost($configuration->verifyHost);
         $client->setVerifyPeer($configuration->verifyPeer);
         $client->setHttpUpgradeInsecureRequests($configuration->httpUpgradeInsecureRequests);
