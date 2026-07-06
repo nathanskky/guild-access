@@ -9,15 +9,13 @@
         }
     ],
     "require": {
-        "php": ">=8.2 <8.5",
+        "php": ">=8.2 <8.6",
         "apereo/phpcas": "~1.6.0",
         "league/container": "^5.1",
         "jumbojett/openid-connect-php": "^1.0",
         "guzzlehttp/guzzle": "^7.10",
-        "laminas/laminas-diactoros": "^3.8"
-    },
-    "require-dev": {
-        "phpunit/phpunit": "^13.0"
+        "laminas/laminas-diactoros": "^3.8",
+        "league/oauth2-client": "^2.9"
     },
     "autoload": {
         "psr-4": {
@@ -28,5 +26,8 @@
         "psr-4": {
             "Shadow\\Access\\Test\\": "tests"
         }
+    },
+    "require-dev": {
+        "monolog/monolog": "^3.10"
     }
 }
