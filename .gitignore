@@ -3,5 +3,6 @@ logs/
 public/
 tmp/
 vendor/
-
+.miller/
 .env
+.julieignore
