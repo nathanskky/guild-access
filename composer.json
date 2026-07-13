@@ -1,5 +1,5 @@
 {
-    "name": "shadow/access",
+    "name": "guild/access",
     "description": "IU Login (CAS, OIDC) and access control (ACM) middleware, with IU Guest account resolution support (OIDC).",
     "type": "library",
     "authors": [
@@ -19,12 +19,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Shadow\\Access\\": "src"
+            "Guild\\Access\\": "src"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Shadow\\Access\\Test\\": "tests"
+            "Guild\\Access\\Test\\": "tests"
         }
     },
     "require-dev": {

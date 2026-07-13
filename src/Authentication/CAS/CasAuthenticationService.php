@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Shadow\Access\Authentication\CAS;
+namespace Guild\Access\Authentication\CAS;
 
 use phpCAS;
 
