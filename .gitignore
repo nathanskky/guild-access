@@ -1,4 +1,5 @@
 docker/
+logs/
 public/
 tmp/
 vendor/
