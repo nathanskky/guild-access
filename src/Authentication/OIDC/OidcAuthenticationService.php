@@ -45,9 +45,4 @@ final readonly class OidcAuthenticationService
     public function requestUserInfo(string $attribute = null) {
         return $this->client?->requestUserInfo($attribute);
     }
-
-    public function getVerifiedClaims(?string $attribute = null)
-    {
-        return $this->client?->getVerifiedClaims($attribute);
-    }
 }
