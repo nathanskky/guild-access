@@ -23,9 +23,15 @@ final readonly class OidcAuthenticationService
         if ($configuration->codeChallengeMethod !== '') {
             $client->setCodeChallengeMethod($configuration->codeChallengeMethod);
 
-            // The IdP's discovery document omits `code_challenge_methods_supported`,
-            // and jumbojett only sends PKCE when the configured method is listed there.
-            // Inject it so the code_challenge is sent regardless of discovery.
+            // IU's discovery document omits `code_challenge_methods_supported`, and
+            // jumbojett only sends PKCE when the configured method is listed there —
+            // otherwise it silently skips PKCE. Inject the value to force the
+            // code_challenge to be sent regardless of discovery.
+            //
+            // PROVISIONAL, pending live verification against IU's IdP: if IU supports
+            // PKCE (even unadvertised) this hardens the flow; if IU rejects the
+            // unexpected parameter and login breaks, set codeChallengeMethod: '' on
+            // the configuration to disable it.
             $client->providerConfigParam([
                 'code_challenge_methods_supported' => [$configuration->codeChallengeMethod],
             ]);
