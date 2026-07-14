@@ -1,6 +1,6 @@
 # guild/access
 
-IU Login (OIDC) authentication middleware for PHP.
+IU Login (OIDC) authentication service and middleware for PHP.
 
 ACM/Grouper-based authorization and IU external (Guest) account functionality are
 planned for future releases.
@@ -17,7 +17,10 @@ Add the repository, then require the package:
 ```json
 {
     "repositories": [
-        { "type": "vcs", "url": "https://github.com/nathanskky/guild-access.git" }
+        {
+            "type": "vcs",
+            "url": "https://github.com/nathanskky/guild-access.git"
+        }
     ]
 }
 ```
@@ -34,10 +37,10 @@ Construct an `OidcConfiguration` with named arguments:
 use Guild\Access\Authentication\OIDC\OidcConfiguration;
 
 $config = new OidcConfiguration(
-    providerUrl:  'https://idp.example.iu.edu',
-    clientId:     getenv('OIDC_CLIENT_ID'),
-    clientSecret: getenv('OIDC_CLIENT_SECRET'),
-    redirectUri:  'https://app.example.iu.edu/callback',
+    providerUrl:  $_ENV['OIDC_ISSUER'], // e.g. 'https://idp.login.iu.edu'
+    clientId:     $_ENV['OIDC_CLIENT_ID'],
+    clientSecret: $_ENV['OIDC_CLIENT_SECRET'],
+    redirectUri:  $_ENV['OIDC_REDIRECT_URI'], // e.g. 'https://your-app.webapps.iu.edu/signin-oidc'
     scopes:       ['profile', 'email'],
 );
 ```
@@ -84,7 +87,7 @@ $username = $auth->getUserInfo('username');
 
 ```php
 $auth = new OidcAuthenticationService($config);
-$auth->logout('https://app.example.iu.edu/');
+$auth->logout('https://your-app.webapps.iu.edu');
 ```
 
 ## API
