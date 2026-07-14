@@ -2,6 +2,8 @@
 
 namespace Guild\Access\Authentication\OIDC;
 
+use Guild\Access\Authentication\OIDC\Exception\OidcAuthenticationServiceException;
+use Guild\Access\Authentication\OIDC\Exception\OidcProviderErrorException;
 use Jumbojett\OpenIDConnectClient as OidcClient;
 use Jumbojett\OpenIDConnectClientException as OidcClientException;
 

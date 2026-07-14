@@ -1,6 +1,6 @@
 {
     "name": "guild/access",
-    "description": "IU Login (CAS, OIDC) and access control (ACM) middleware, with IU Guest account resolution support (OIDC).",
+    "description": "IU Login (OIDC) authentication middleware for PHP; ACM/Grouper authorization and IU external (Guest) account support planned.",
     "type": "library",
     "authors": [
         {

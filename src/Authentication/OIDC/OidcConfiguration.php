@@ -2,6 +2,8 @@
 
 namespace Guild\Access\Authentication\OIDC;
 
+use Guild\Access\Authentication\OIDC\Exception\OidcConfigurationException;
+
 final readonly class OidcConfiguration
 {
     private const CODE_CHALLENGE_METHODS = ['S256', 'plain', ''];

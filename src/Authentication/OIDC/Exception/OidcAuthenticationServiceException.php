@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace Guild\Access\Authentication\OIDC;
+namespace Guild\Access\Authentication\OIDC\Exception;
 
 use Exception;
 

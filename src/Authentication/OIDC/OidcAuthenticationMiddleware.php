@@ -3,6 +3,7 @@
 namespace Guild\Access\Authentication\OIDC;
 
 use Exception;
+use Guild\Access\Authentication\OIDC\Exception\OidcProviderErrorException;
 use Laminas\Diactoros\Response\EmptyResponse;
 use Laminas\Diactoros\Response\TextResponse;
 use Psr\Http\Message\ResponseInterface;
