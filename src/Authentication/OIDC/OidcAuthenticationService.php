@@ -28,10 +28,9 @@ final readonly class OidcAuthenticationService
             // otherwise it silently skips PKCE. Inject the value to force the
             // code_challenge to be sent regardless of discovery.
             //
-            // PROVISIONAL, pending live verification against IU's IdP: if IU supports
-            // PKCE (even unadvertised) this hardens the flow; if IU rejects the
-            // unexpected parameter and login breaks, set codeChallengeMethod: '' on
-            // the configuration to disable it.
+            // Verified against IU's IdP: S256 login succeeds, confirming IU supports
+            // PKCE even though it isn't advertised in discovery. To disable PKCE,
+            // set codeChallengeMethod: '' on the configuration.
             $client->providerConfigParam([
                 'code_challenge_methods_supported' => [$configuration->codeChallengeMethod],
             ]);
