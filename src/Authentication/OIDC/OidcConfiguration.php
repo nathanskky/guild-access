@@ -8,6 +8,9 @@ final readonly class OidcConfiguration
 {
     private const CODE_CHALLENGE_METHODS = ['S256', 'plain', ''];
 
+    /**
+     * @param string[] $scopes Additional OIDC scopes; `openid` is always included.
+     */
     public function __construct(
         // Identity & endpoint — the essentials
         public string $providerUrl,

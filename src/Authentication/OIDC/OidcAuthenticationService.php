@@ -78,8 +78,10 @@ final readonly class OidcAuthenticationService
 
         // The IdP redirected back with an error (e.g. the user denied consent).
         if (isset($query['error'])) {
-            $error = (string) $query['error'];
-            $description = isset($query['error_description']) ? (string) $query['error_description'] : null;
+            $error = is_scalar($query['error']) ? (string) $query['error'] : '';
+            $description = isset($query['error_description']) && is_scalar($query['error_description'])
+                ? (string) $query['error_description']
+                : null;
 
             // Log the full detail here; the exception message carries it too, but
             // callers must NOT echo it to the client — these values are
@@ -140,10 +142,10 @@ final readonly class OidcAuthenticationService
 
         $this->logger->info('OIDC login established');
 
-        $returnTo = $_SESSION['guild_oidc_return_to'] ?? $this->configuration->defaultReturnUrl;
+        $returnTo = $_SESSION['guild_oidc_return_to'] ?? null;
         unset($_SESSION['guild_oidc_return_to']);
 
-        return new RedirectResponse($returnTo);
+        return new RedirectResponse(is_string($returnTo) ? $returnTo : $this->configuration->defaultReturnUrl);
     }
 
     /**
@@ -243,7 +245,7 @@ final readonly class OidcAuthenticationService
         // exists if the user actually completed a login. signOut() builds the
         // end_session URL and, via the capturing client, stashes it rather than
         // redirecting — so we wrap it in a response instead.
-        if ($idToken !== null) {
+        if (is_string($idToken)) {
             $this->client->signOut($idToken, $redirectUrl);
             $endSessionUrl = $this->client->takeCapturedRedirect();
             if ($endSessionUrl !== null) {

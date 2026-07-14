@@ -34,6 +34,8 @@ final class CapturingOidcClient extends OpenIDConnectClient
      * Capture the URL instead of `header()`+`exit`. Signature intentionally
      * matches the parent (no return type declared there).
      *
+     * @return void
+     *
      * {@inheritDoc}
      */
     public function redirect(string $url)
