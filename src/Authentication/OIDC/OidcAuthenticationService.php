@@ -245,31 +245,32 @@ final readonly class OidcAuthenticationService
             $_SESSION['guild_oidc_return_to'],
         );
 
-        // Only an allowlisted absolute https URL is a valid post_logout_redirect_uri;
-        // any other caller-supplied value is dropped so it can't become an open
-        // redirect via the IdP (logout still proceeds, just without redirect-back).
-        $postLogout = $this->configuration->postLogoutRedirect($redirectUrl);
-        if ($postLogout === null && $redirectUrl !== null && !str_starts_with($redirectUrl, '/')) {
-            $this->logger->warning('Ignoring post-logout redirect target not in allowedRedirectHosts', [
+        // Local-redirect policy: a non-local target (absolute URL, protocol-relative,
+        // etc.) is never honored — it falls back to defaultReturnUrl. Surface the
+        // downgrade so a caller can see why their target was ignored.
+        $localTarget = $this->configuration->sanitizeRedirect($redirectUrl);
+        if ($redirectUrl !== null && $localTarget !== $redirectUrl) {
+            $this->logger->warning('Non-local logout redirect ignored; using defaultReturnUrl', [
                 'requested' => $redirectUrl,
             ]);
         }
 
         // RP-initiated logout requires the ID token as `id_token_hint`; it only
-        // exists if the user actually completed a login. signOut() builds the
-        // end_session URL and, via the capturing client, stashes it rather than
+        // exists if the user actually completed a login. We never send a
+        // post_logout_redirect_uri (that would have to be absolute), so the IdP
+        // logs the user out and lands them on its own logout page. signOut() builds
+        // the end_session URL and, via the capturing client, stashes it rather than
         // redirecting — so we wrap it in a response instead.
         if (is_string($idToken)) {
-            $this->client->signOut($idToken, $postLogout);
+            $this->client->signOut($idToken, null);
             $endSessionUrl = $this->client->takeCapturedRedirect();
             if ($endSessionUrl !== null) {
                 return new RedirectResponse($endSessionUrl);
             }
         }
 
-        // Nothing to hand the IdP — just end the local session and redirect
-        // (relative paths allowed; unsafe absolute targets fall back to default).
-        return new RedirectResponse($this->configuration->sanitizeRedirect($redirectUrl));
+        // No IdP session to end — just end the local session and redirect locally.
+        return new RedirectResponse($localTarget);
     }
 
     /**

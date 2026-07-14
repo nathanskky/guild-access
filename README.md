@@ -53,24 +53,21 @@ $config = new OidcConfiguration(
 | `redirectUri` | `string` | `''` | Registered redirect URI; must be an `https` URL when set. Empty = auto-derived from the request. |
 | `scopes` | `string[]` | `[]` | Extra scopes; `openid` is always included. |
 | `codeChallengeMethod` | `string` | `'S256'` | PKCE method: `'S256'`, `'plain'`, or `''` to disable. |
-| `defaultReturnUrl` | `string` | `'/'` | Where to land after login if no original URL was captured. Must be a local path or an allowlisted https URL. |
-| `allowedRedirectHosts` | `string[]` | `[]` | Hosts permitted as **absolute** post-login/post-logout redirect targets (see Redirects). |
+| `defaultReturnUrl` | `string` | `'/'` | Where to land after login if no original URL was captured. Must be a local path beginning with `/`. |
 
 Invalid configuration throws `OidcConfigurationException`.
 
 ### Redirects
 
 Redirect targets this library emits (post-login landing, post-logout landing) are
-validated to prevent open redirects:
+**local-only**, to prevent open redirects:
 
-- **Relative paths** (`/dashboard`) are always allowed.
-- **Absolute URLs** are honored only when they are `https` and their host is listed in
-  `allowedRedirectHosts`; anything else falls back to `defaultReturnUrl`.
-- For RP-initiated logout, the `post_logout_redirect_uri` sent to the IdP must be an
-  allowlisted absolute https URL. A non-allowlisted value is dropped — logout still
-  completes, just without redirect-back — and logged if a logger is set. (Separately, the
-  OIDC RP-Initiated Logout spec expects this URI to be pre-registered with the IdP, so an
-  unregistered value may be rejected on the IdP side; confirm what IU Login requires.)
+- **Relative paths** (`/dashboard`) are allowed.
+- **Anything else** — absolute URLs, protocol-relative (`//host`), backslash tricks — is
+  ignored and falls back to `defaultReturnUrl` (logged if a logger is set).
+- RP-initiated logout does **not** send a `post_logout_redirect_uri` (that would have to be
+  absolute), so after the IdP logs the user out they land on the IdP's own logout page. When
+  there is no IdP session to end, logout redirects to the local target (or `defaultReturnUrl`).
 
 ## Usage
 
@@ -126,14 +123,14 @@ globals are used.
 
 ```php
 // Legacy: redirects and exits.
-$auth->logout('https://your-app.webapps.iu.edu');
+$auth->logout('/goodbye');
 
 // Modern: returns the redirect response for you to emit.
-$response = $auth->logoutResponse('https://your-app.webapps.iu.edu');
+$response = $auth->logoutResponse('/goodbye');
 ```
 
-An absolute logout target must be in `allowedRedirectHosts`, otherwise it's ignored and
-logout falls back to `defaultReturnUrl`. See [Redirects](#redirects).
+The logout target is a **local path** used as the landing when there's no IdP session to
+end; a non-local target is ignored in favor of `defaultReturnUrl`. See [Redirects](#redirects).
 
 ## Sessions
 

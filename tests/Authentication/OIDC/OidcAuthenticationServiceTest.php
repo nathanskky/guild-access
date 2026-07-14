@@ -144,36 +144,17 @@ final class OidcAuthenticationServiceTest extends TestCase
 
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
-    public function testLogoutResponseRejectsDisallowedAbsoluteRedirectAndLogs(): void
+    public function testLogoutResponseRejectsNonLocalRedirectAndLogs(): void
     {
         session_start();
         $handler = new TestHandler();
         $logger = new Logger('test', [$handler]);
 
-        // No id token → local fallback path; a non-allowlisted absolute target
-        // must fall back to defaultReturnUrl and be logged (S5).
+        // No id token → local fallback path; a non-local (absolute) target must
+        // fall back to defaultReturnUrl and be logged (S5, local-only policy).
         $response = $this->service($logger)->logoutResponse('https://evil.example/phish');
 
         self::assertSame('/', $response->getHeaderLine('Location'));
-        self::assertTrue($handler->hasWarningThatContains('Ignoring post-logout redirect target'));
-    }
-
-    #[RunInSeparateProcess]
-    #[PreserveGlobalState(false)]
-    public function testLogoutResponseHonorsAllowlistedAbsoluteRedirect(): void
-    {
-        session_start();
-        $config = new OidcConfiguration(
-            'https://idp.login.iu.edu',
-            'id',
-            'secret',
-            'https://app.iu.edu/cb',
-            allowedRedirectHosts: ['app.iu.edu'],
-        );
-
-        // No id token → local fallback path; an allowlisted absolute target is kept.
-        $response = (new OidcAuthenticationService($config))->logoutResponse('https://app.iu.edu/bye');
-
-        self::assertSame('https://app.iu.edu/bye', $response->getHeaderLine('Location'));
+        self::assertTrue($handler->hasWarningThatContains('Non-local logout redirect ignored'));
     }
 }
