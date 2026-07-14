@@ -121,11 +121,12 @@ final class OidcAuthenticationServiceTest extends TestCase
         $_SESSION['guild_oidc_authenticated_until'] = time() + 3600;
         $_SESSION['guild_oidc_user_info'] = (object) ['username' => 'jdoe'];
 
-        $response = $this->service()->logoutResponse('https://app.iu.edu/bye');
+        // A relative path is always a safe local redirect target (no allowlist needed).
+        $response = $this->service()->logoutResponse('/goodbye');
 
         self::assertInstanceOf(RedirectResponse::class, $response);
         self::assertSame(302, $response->getStatusCode());
-        self::assertSame('https://app.iu.edu/bye', $response->getHeaderLine('Location'));
+        self::assertSame('/goodbye', $response->getHeaderLine('Location'));
         self::assertArrayNotHasKey('guild_oidc_authenticated_until', $_SESSION);
         self::assertArrayNotHasKey('guild_oidc_user_info', $_SESSION);
     }
@@ -139,5 +140,40 @@ final class OidcAuthenticationServiceTest extends TestCase
         $response = $this->service()->logoutResponse();
 
         self::assertSame('/', $response->getHeaderLine('Location'), 'defaultReturnUrl is used when none is given');
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testLogoutResponseRejectsDisallowedAbsoluteRedirectAndLogs(): void
+    {
+        session_start();
+        $handler = new TestHandler();
+        $logger = new Logger('test', [$handler]);
+
+        // No id token → local fallback path; a non-allowlisted absolute target
+        // must fall back to defaultReturnUrl and be logged (S5).
+        $response = $this->service($logger)->logoutResponse('https://evil.example/phish');
+
+        self::assertSame('/', $response->getHeaderLine('Location'));
+        self::assertTrue($handler->hasWarningThatContains('Ignoring post-logout redirect target'));
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testLogoutResponseHonorsAllowlistedAbsoluteRedirect(): void
+    {
+        session_start();
+        $config = new OidcConfiguration(
+            'https://idp.login.iu.edu',
+            'id',
+            'secret',
+            'https://app.iu.edu/cb',
+            allowedRedirectHosts: ['app.iu.edu'],
+        );
+
+        // No id token → local fallback path; an allowlisted absolute target is kept.
+        $response = (new OidcAuthenticationService($config))->logoutResponse('https://app.iu.edu/bye');
+
+        self::assertSame('https://app.iu.edu/bye', $response->getHeaderLine('Location'));
     }
 }
