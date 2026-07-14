@@ -50,7 +50,7 @@ $config = new OidcConfiguration(
 | `providerUrl` | `string` | *(required)* | Base URL of the OIDC provider. |
 | `clientId` | `string` | *(required)* | Your client id. |
 | `clientSecret` | `string` | *(required)* | Your client secret. |
-| `redirectUri` | `string` | `''` | Registered redirect URI. Empty = auto-derived from the request. |
+| `redirectUri` | `string` | `''` | Registered redirect URI; must be an `https` URL when set. Empty = auto-derived from the request. |
 | `scopes` | `string[]` | `[]` | Extra scopes; `openid` is always included. |
 | `codeChallengeMethod` | `string` | `'S256'` | PKCE method: `'S256'`, `'plain'`, or `''` to disable. |
 | `defaultReturnUrl` | `string` | `'/'` | Where to land after login if no original URL was captured. |
@@ -74,20 +74,47 @@ requested. The request continues once authenticated; on failure it responds
 
 ### Standalone (no middleware)
 
+The service exposes two styles, both first-class — pick the one that fits your app.
+
+**Legacy / traditional scripts** — the service drives the redirect itself with
+`header()` + `exit`, and returns only once the user is authenticated. Best for older
+codebases that don't work with request/response objects:
+
 ```php
 use Guild\Access\Authentication\OIDC\OidcAuthenticationService;
 
 $auth = new OidcAuthenticationService($config);
-$auth->requireAuthentication();   // returns once the user is authenticated
+$auth->requireAuthentication();   // redirects+exits as needed; returns once authenticated
 
 $username = $auth->getUserInfo('username');
 ```
 
-### Logout
+**Modern / response-returning** — `guard()` never exits. It returns a PSR-7
+`ResponseInterface` you emit yourself (to the IdP on the first leg, or back to the
+original URL after login), or `null` when the user may proceed:
 
 ```php
 $auth = new OidcAuthenticationService($config);
+
+if ($response = $auth->guard($request)) {
+    // emit $response with your framework / SapiEmitter, then stop
+    return $response;
+}
+
+$username = $auth->getUserInfo('username');
+```
+
+`guard()` accepts an optional `ServerRequestInterface`; omit it and the current PHP
+globals are used.
+
+### Logout
+
+```php
+// Legacy: redirects and exits.
 $auth->logout('https://your-app.webapps.iu.edu');
+
+// Modern: returns the redirect response for you to emit.
+$response = $auth->logoutResponse('https://your-app.webapps.iu.edu');
 ```
 
 ## Sessions
@@ -114,11 +141,22 @@ $middleware = new OidcAuthenticationMiddleware($config, $logger);
 ## API
 
 ```php
-requireAuthentication(): void            // guard a request; sends the user to log in if needed
-isAuthenticated(): bool                  // is there a current login?
-getUserInfo(?string $attribute = null)   // a user claim, or all claims; null if not authenticated
-logout(?string $redirectUrl = null)      // log out and redirect
+// Modern (exit-free, PSR-15-friendly) — return the response, or null to proceed:
+guard(?ServerRequestInterface $request = null): ?ResponseInterface
+logoutResponse(?string $redirectUrl = null): ResponseInterface
+
+// Legacy (self-emitting; header()+exit) — for traditional scripts:
+requireAuthentication(?ServerRequestInterface $request = null): void
+logout(?string $redirectUrl = null): never
+
+isAuthenticated(): bool                       // is there a current login?
+getUserInfo(?string $attribute = null): mixed // a user claim, or all claims; null if not authenticated
 ```
+
+> **Note on sessions + emitters:** the library uses native PHP sessions, so the session
+> cookie is sent through PHP's own `session_start()` machinery rather than the returned
+> PSR-7 response. This is fine in a normal SAPI setup; just don't flush output before the
+> response is emitted.
 
 ## Errors
 
@@ -128,4 +166,9 @@ logout(?string $redirectUrl = null)      // log out and redirect
 | `OidcProviderErrorException` | The IdP returned an error (e.g. consent denied). |
 | `OidcAuthenticationServiceException` | Authentication failed. |
 
-All are under the `Guild\Access\Authentication\OIDC\Exception` namespace.
+These are under the `Guild\Access\Authentication\OIDC\Exception` namespace
+(`OidcProviderErrorException` extends `OidcAuthenticationServiceException`). In addition,
+`Jumbojett\OpenIDConnectClientException` may surface from the guard/logout methods on a
+token or JWT validation failure. The middleware maps `OidcProviderErrorException` to `400`
+and both `OidcAuthenticationServiceException` and `Jumbojett\OpenIDConnectClientException`
+to `401`; if you call `guard()`/`logoutResponse()` directly, catch them yourself.

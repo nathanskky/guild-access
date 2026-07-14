@@ -25,18 +25,20 @@ final readonly class OidcAuthenticationMiddleware implements MiddlewareInterface
     }
 
     /**
-     * A thin PSR-15 adapter over OidcAuthenticationService::requireAuthentication().
-     * All of the flow logic (session window, error handling, return-to capture,
-     * token exchange, redirects) lives in the service; this just maps failures to
-     * HTTP responses. On the redirect legs the service exits before this returns.
+     * A thin PSR-15 adapter over OidcAuthenticationService::guard(). All of the
+     * flow logic (session window, error handling, return-to capture, token
+     * exchange, redirects) lives in the service; this maps its result to an HTTP
+     * response. guard() returns a redirect response on the IdP and callback legs
+     * (returned as-is, so the rest of the pipeline is honored) or null when the
+     * user is already authenticated (the request continues downstream).
      *
      * @inheritDoc
      */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         try {
-            $this->authenticationService->requireAuthentication();
-            return $handler->handle($request);
+            $response = $this->authenticationService->guard($request);
+            return $response ?? $handler->handle($request);
         } catch (OidcProviderErrorException $exception) {
             // The detail (attacker-controllable error/error_description) is logged
             // in the service; the client body stays generic to avoid reflecting it.

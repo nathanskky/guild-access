@@ -4,14 +4,19 @@ namespace Guild\Access\Authentication\OIDC;
 
 use Guild\Access\Authentication\OIDC\Exception\OidcAuthenticationServiceException;
 use Guild\Access\Authentication\OIDC\Exception\OidcProviderErrorException;
-use Jumbojett\OpenIDConnectClient as OidcClient;
+use Guild\Access\Authentication\OIDC\Internal\CapturingOidcClient;
 use Jumbojett\OpenIDConnectClientException as OidcClientException;
+use Laminas\Diactoros\Response\RedirectResponse;
+use Laminas\Diactoros\ServerRequestFactory;
+use Laminas\HttpHandlerRunner\Emitter\SapiEmitter;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 final readonly class OidcAuthenticationService
 {
-    private OidcClient $client;
+    private CapturingOidcClient $client;
     private LoggerInterface $logger;
 
     public function __construct(
@@ -20,7 +25,7 @@ final readonly class OidcAuthenticationService
     ) {
         $this->logger = $logger ?? new NullLogger();
 
-        $client = new OidcClient(
+        $client = new CapturingOidcClient(
             $configuration->providerUrl,
             $configuration->clientId,
             $configuration->clientSecret
@@ -49,28 +54,32 @@ final readonly class OidcAuthenticationService
     }
 
     /**
-     * The complete OIDC guard, usable on its own without the middleware.
+     * The complete OIDC guard, exit-free and PSR-15-friendly.
      *
-     * Returns normally only when the caller may proceed (an unexpired login
-     * already exists in the session). Otherwise it drives the flow and never
-     * returns: it either redirects the browser to the IdP (first leg) or, once
-     * the IdP redirects back with a code, validates it, records the login, and
-     * redirects to the originally-requested URL (both via header()+exit).
+     * Returns null when the caller may proceed (an unexpired login already
+     * exists in the session). Otherwise it returns a RedirectResponse the caller
+     * must send: on the first leg, to the IdP; after a successful callback, to
+     * the originally-requested URL. Request data (error/code/return-to) is read
+     * from $request, falling back to the current PHP globals when none is given.
      *
      * @throws OidcProviderErrorException if the IdP redirected back with an error
      * @throws OidcClientException on a token/JWT validation failure
      * @throws OidcAuthenticationServiceException if authentication otherwise fails
      */
-    public function requireAuthentication(): void
+    public function guard(?ServerRequestInterface $request = null): ?ResponseInterface
     {
+        $request ??= ServerRequestFactory::fromGlobals();
+
         if ($this->isAuthenticated()) {
-            return;
+            return null;
         }
 
+        $query = $request->getQueryParams();
+
         // The IdP redirected back with an error (e.g. the user denied consent).
-        if (isset($_GET['error'])) {
-            $error = (string) $_GET['error'];
-            $description = isset($_GET['error_description']) ? (string) $_GET['error_description'] : null;
+        if (isset($query['error'])) {
+            $error = (string) $query['error'];
+            $description = isset($query['error_description']) ? (string) $query['error_description'] : null;
 
             // Log the full detail here; the exception message carries it too, but
             // callers must NOT echo it to the client — these values are
@@ -85,16 +94,22 @@ final readonly class OidcAuthenticationService
         }
 
         // First leg: no authorization code yet. Remember where the user was
-        // headed before authenticate() bounces them to the IdP — that call
-        // redirects and exits, so this is the only chance to capture it.
-        if (!isset($_GET['code'])) {
-            $_SESSION['guild_oidc_return_to'] = $_SERVER['REQUEST_URI'] ?? $this->configuration->defaultReturnUrl;
+        // headed before we bounce them to the IdP (origin-form path?query).
+        if (!isset($query['code'])) {
+            $_SESSION['guild_oidc_return_to'] = $request->getRequestTarget();
         }
 
-        // Either exits to the IdP (no code) or validates the returned code.
         // authenticate() returns true only after the code, state, and ID token
-        // have all been verified; guard the falsy path defensively.
+        // have all been verified. On the first leg it returns false *after* the
+        // capturing client has stashed the IdP redirect URL (jumbojett would
+        // otherwise header()+exit there), so a false return with a captured URL
+        // is the redirect-to-IdP leg; a false return with none is a real failure.
         if (!$this->client->authenticate()) {
+            $redirectUrl = $this->client->takeCapturedRedirect();
+            if ($redirectUrl !== null) {
+                return new RedirectResponse($redirectUrl);
+            }
+
             $this->logger->error('OIDC authenticate() returned false without throwing');
             throw new OidcAuthenticationServiceException('Authentication failed');
         }
@@ -128,8 +143,25 @@ final readonly class OidcAuthenticationService
         $returnTo = $_SESSION['guild_oidc_return_to'] ?? $this->configuration->defaultReturnUrl;
         unset($_SESSION['guild_oidc_return_to']);
 
-        header('Location: ' . $returnTo);
-        exit;
+        return new RedirectResponse($returnTo);
+    }
+
+    /**
+     * Legacy, self-emitting guard for traditional (non-PSR-15) scripts: drives
+     * the flow with header()+exit and returns only once an unexpired login
+     * exists. A thin wrapper over {@see guard()} for callers that don't work
+     * with response objects.
+     *
+     * @throws OidcProviderErrorException if the IdP redirected back with an error
+     * @throws OidcClientException on a token/JWT validation failure
+     * @throws OidcAuthenticationServiceException if authentication otherwise fails
+     */
+    public function requireAuthentication(?ServerRequestInterface $request = null): void
+    {
+        $response = $this->guard($request);
+        if ($response !== null) {
+            $this->emit($response);
+        }
     }
 
     /**
@@ -187,14 +219,15 @@ final readonly class OidcAuthenticationService
     }
 
     /**
-     * Ends the login. Reads the ID token persisted at authentication time (the
-     * fresh per-request client never holds it) and, if present, performs an
-     * RP-initiated logout at the IdP's end_session_endpoint. Clears the local
-     * session either way. Never returns — it redirects and exits.
+     * Ends the login and returns the redirect the caller must send (exit-free).
+     * Reads the ID token persisted at authentication time (the fresh per-request
+     * client never holds it) and, if present, returns an RP-initiated logout
+     * redirect to the IdP's end_session_endpoint; otherwise a plain redirect.
+     * Clears the local session either way.
      *
      * @throws OidcClientException
      */
-    public function logout(?string $redirectUrl = null): never
+    public function logoutResponse(?string $redirectUrl = null): ResponseInterface
     {
         $this->startSession();
 
@@ -207,14 +240,41 @@ final readonly class OidcAuthenticationService
         );
 
         // RP-initiated logout requires the ID token as `id_token_hint`; it only
-        // exists if the user actually completed a login. signOut() redirects to
-        // the IdP and exits.
+        // exists if the user actually completed a login. signOut() builds the
+        // end_session URL and, via the capturing client, stashes it rather than
+        // redirecting — so we wrap it in a response instead.
         if ($idToken !== null) {
             $this->client->signOut($idToken, $redirectUrl);
+            $endSessionUrl = $this->client->takeCapturedRedirect();
+            if ($endSessionUrl !== null) {
+                return new RedirectResponse($endSessionUrl);
+            }
         }
 
         // Nothing to hand the IdP — just end the local session and redirect.
-        header('Location: ' . ($redirectUrl ?? $this->configuration->defaultReturnUrl));
+        return new RedirectResponse($redirectUrl ?? $this->configuration->defaultReturnUrl);
+    }
+
+    /**
+     * Legacy, self-emitting logout for traditional (non-PSR-15) scripts: ends
+     * the login, redirects, and exits. A thin wrapper over {@see logoutResponse()}.
+     *
+     * @throws OidcClientException
+     */
+    public function logout(?string $redirectUrl = null): never
+    {
+        $this->emit($this->logoutResponse($redirectUrl));
+    }
+
+    /**
+     * Emit a PSR-7 response to the SAPI (via SapiEmitter) and terminate. This is
+     * the single place in the library that emits + exits; the legacy self-emitting
+     * wrappers ({@see requireAuthentication()}, {@see logout()}) route through it
+     * so the modern guard()/logoutResponse() path stays exit-free.
+     */
+    private function emit(ResponseInterface $response): never
+    {
+        (new SapiEmitter())->emit($response);
         exit;
     }
 }
