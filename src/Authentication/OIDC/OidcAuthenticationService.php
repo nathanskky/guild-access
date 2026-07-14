@@ -6,13 +6,20 @@ use Guild\Access\Authentication\OIDC\Exception\OidcAuthenticationServiceExceptio
 use Guild\Access\Authentication\OIDC\Exception\OidcProviderErrorException;
 use Jumbojett\OpenIDConnectClient as OidcClient;
 use Jumbojett\OpenIDConnectClientException as OidcClientException;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 final readonly class OidcAuthenticationService
 {
     private OidcClient $client;
+    private LoggerInterface $logger;
 
-    public function __construct(private OidcConfiguration $configuration)
-    {
+    public function __construct(
+        private OidcConfiguration $configuration,
+        ?LoggerInterface $logger = null,
+    ) {
+        $this->logger = $logger ?? new NullLogger();
+
         $client = new OidcClient(
             $configuration->providerUrl,
             $configuration->clientId,
@@ -62,10 +69,18 @@ final readonly class OidcAuthenticationService
 
         // The IdP redirected back with an error (e.g. the user denied consent).
         if (isset($_GET['error'])) {
-            $message = (string) $_GET['error'];
-            if (isset($_GET['error_description'])) {
-                $message .= ': ' . $_GET['error_description'];
-            }
+            $error = (string) $_GET['error'];
+            $description = isset($_GET['error_description']) ? (string) $_GET['error_description'] : null;
+
+            // Log the full detail here; the exception message carries it too, but
+            // callers must NOT echo it to the client — these values are
+            // attacker-controllable query params (see the middleware).
+            $this->logger->warning('OIDC provider returned an error', [
+                'error' => $error,
+                'error_description' => $description,
+            ]);
+
+            $message = $error . ($description !== null ? ': ' . $description : '');
             throw new OidcProviderErrorException($message);
         }
 
@@ -80,12 +95,20 @@ final readonly class OidcAuthenticationService
         // authenticate() returns true only after the code, state, and ID token
         // have all been verified; guard the falsy path defensively.
         if (!$this->client->authenticate()) {
+            $this->logger->error('OIDC authenticate() returned false without throwing');
             throw new OidcAuthenticationServiceException('Authentication failed');
         }
 
-        // Callback leg succeeded, and the client still holds the access and ID
-        // tokens in memory — a fresh client on later requests will not. Persist
-        // what those requests need before redirecting away.
+        // Callback leg succeeded. Regenerate the session ID before recording the
+        // login so a pre-login (potentially fixated) ID can never carry over into
+        // an authenticated session. Safe here: state/nonce validation is already
+        // done, and regeneration preserves existing $_SESSION data (incl.
+        // guild_oidc_return_to, read below).
+        session_regenerate_id(true);
+
+        // The client still holds the access and ID tokens in memory — a fresh
+        // client on later requests will not. Persist what those requests need
+        // before redirecting away.
 
         // The user info from the IdP's userinfo endpoint (authorized with the
         // access token, available only now), so getUserInfo() can serve it
@@ -100,6 +123,8 @@ final readonly class OidcAuthenticationService
         // The raw ID token, needed as the `id_token_hint` for RP-initiated logout.
         $_SESSION['guild_oidc_id_token'] = $this->client->getIdToken();
 
+        $this->logger->info('OIDC login established');
+
         $returnTo = $_SESSION['guild_oidc_return_to'] ?? $this->configuration->defaultReturnUrl;
         unset($_SESSION['guild_oidc_return_to']);
 
@@ -108,14 +133,34 @@ final readonly class OidcAuthenticationService
     }
 
     /**
+     * Start the PHP session if one is not already active, hardening the session
+     * cookie first. Guarded on there being no active session, so it never
+     * overrides an application that manages its own session/cookie params.
+     */
+    private function startSession(): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            return;
+        }
+
+        if (!headers_sent()) {
+            session_set_cookie_params([
+                'httponly' => true,
+                'samesite' => 'Lax',
+                'secure' => true,
+            ]);
+        }
+
+        session_start();
+    }
+
+    /**
      * Whether an unexpired login already exists in the session, meaning the
      * caller may proceed without contacting the IdP again.
      */
     public function isAuthenticated(): bool
     {
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
-        }
+        $this->startSession();
 
         return ($_SESSION['guild_oidc_authenticated_until'] ?? 0) > time();
     }
@@ -128,11 +173,9 @@ final readonly class OidcAuthenticationService
      * Returns null if no user info is stored (the user is not authenticated) or
      * the requested attribute is absent.
      */
-    public function getUserInfo(?string $attribute = null)
+    public function getUserInfo(?string $attribute = null): mixed
     {
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
-        }
+        $this->startSession();
 
         $userInfo = $_SESSION['guild_oidc_user_info'] ?? null;
 
@@ -153,9 +196,7 @@ final readonly class OidcAuthenticationService
      */
     public function logout(?string $redirectUrl = null): never
     {
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
-        }
+        $this->startSession();
 
         $idToken = $_SESSION['guild_oidc_id_token'] ?? null;
         unset(

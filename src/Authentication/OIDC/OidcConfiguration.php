@@ -39,8 +39,17 @@ final readonly class OidcConfiguration
         }
         // A non-empty redirectUri must have a host — jumbojett silently ignores a
         // hostless value and falls back to auto-derive, which would be surprising.
-        if ($redirectUri !== '' && parse_url($redirectUri, PHP_URL_HOST) === null) {
-            throw new OidcConfigurationException("redirectUri must be a valid URL with a host (given: '$redirectUri').");
+        if ($redirectUri !== '') {
+            if (parse_url($redirectUri, PHP_URL_HOST) === null) {
+                throw new OidcConfigurationException("redirectUri must be a valid URL with a host (given: '$redirectUri').");
+            }
+            // Require https; IU serves over TLS only, and anything else (http://,
+            // ftp://, javascript:, …) would be handed to the browser as a redirect
+            // target — a downgrade or injection risk.
+            $scheme = strtolower((string) parse_url($redirectUri, PHP_URL_SCHEME));
+            if ($scheme !== 'https') {
+                throw new OidcConfigurationException("redirectUri must use https (given: '$redirectUri').");
+            }
         }
     }
 }

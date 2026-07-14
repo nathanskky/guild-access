@@ -10,13 +10,10 @@
     ],
     "require": {
         "php": ">=8.2 <8.6",
-        "apereo/phpcas": "~1.6.0",
-        "league/container": "^5.1",
         "jumbojett/openid-connect-php": "^1.0",
-        "guzzlehttp/guzzle": "^7.10",
         "laminas/laminas-diactoros": "^3.8",
-        "league/oauth2-client": "^2.9",
-        "psr/http-server-middleware": "^1.0"
+        "psr/http-server-middleware": "^1.0",
+        "psr/log": "^3.0"
     },
     "autoload": {
         "psr-4": {

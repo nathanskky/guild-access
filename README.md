@@ -90,6 +90,27 @@ $auth = new OidcAuthenticationService($config);
 $auth->logout('https://your-app.webapps.iu.edu');
 ```
 
+## Sessions
+
+The service owns PHP session startup. When no session is already active it starts one
+with hardened cookie flags — `HttpOnly`, `SameSite=Lax`, and `Secure` (IU serves over
+HTTPS only, so the session cookie is never sent over plaintext). On a successful login the
+session ID is regenerated to prevent session fixation. If your application starts its own
+session first, the library uses it as-is and does not override your cookie settings —
+configure `HttpOnly`/`Secure`/`SameSite` yourself in that case.
+
+## Logging
+
+`OidcAuthenticationService` and `OidcAuthenticationMiddleware` accept an optional PSR-3
+`LoggerInterface` as their second constructor argument. When supplied, provider errors and
+authentication failures are logged (IdP `error`/`error_description` detail is logged rather
+than returned to the browser). Without a logger, nothing is logged.
+
+```php
+$auth = new OidcAuthenticationService($config, $logger);
+$middleware = new OidcAuthenticationMiddleware($config, $logger);
+```
+
 ## API
 
 ```php

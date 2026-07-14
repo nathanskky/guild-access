@@ -2,22 +2,26 @@
 
 namespace Guild\Access\Authentication\OIDC;
 
-use Exception;
+use Guild\Access\Authentication\OIDC\Exception\OidcAuthenticationServiceException;
 use Guild\Access\Authentication\OIDC\Exception\OidcProviderErrorException;
+use Jumbojett\OpenIDConnectClientException as OidcClientException;
 use Laminas\Diactoros\Response\EmptyResponse;
 use Laminas\Diactoros\Response\TextResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
+use Psr\Log\LoggerInterface;
 
 final readonly class OidcAuthenticationMiddleware implements MiddlewareInterface
 {
     public OidcAuthenticationService $authenticationService;
 
-    public function __construct(OidcConfiguration $configuration)
-    {
-        $this->authenticationService = new OidcAuthenticationService($configuration);
+    public function __construct(
+        OidcConfiguration $configuration,
+        private ?LoggerInterface $logger = null,
+    ) {
+        $this->authenticationService = new OidcAuthenticationService($configuration, $logger);
     }
 
     /**
@@ -34,9 +38,17 @@ final readonly class OidcAuthenticationMiddleware implements MiddlewareInterface
             $this->authenticationService->requireAuthentication();
             return $handler->handle($request);
         } catch (OidcProviderErrorException $exception) {
-            return new TextResponse('OIDC login failed: ' . $exception->getMessage(), 400);
-        } catch (Exception $exception) {
+            // The detail (attacker-controllable error/error_description) is logged
+            // in the service; the client body stays generic to avoid reflecting it.
+            return new TextResponse('OIDC login failed.', 400);
+        } catch (OidcAuthenticationServiceException | OidcClientException $exception) {
+            $this->logger?->warning('OIDC authentication failed', ['exception' => $exception]);
             return new EmptyResponse(401);
+        } catch (\Throwable $exception) {
+            // Not an authentication failure — a real fault (misconfig, network,
+            // bug). Log it and let it propagate rather than masking it as a 401.
+            $this->logger?->error('Unexpected error during OIDC authentication', ['exception' => $exception]);
+            throw $exception;
         }
     }
 }
