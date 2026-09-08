@@ -1,10 +1,13 @@
 docker/
+html/
 logs/
 public/
 tmp/
 vendor/
+.idea/
 .miller/
 .phpunit.cache/
 .phpunit.result.cache
-.env
+*.env*
 .julieignore
+composer.lock
