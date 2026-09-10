@@ -9,7 +9,8 @@ authentication service, and a PSR-15 middleware, built on `jumbojett/openid-conn
 `Guild\Access\`, autoloaded from `src/`. Consumed as a Composer dependency; not runnable on its own.
 
 - **PHP:** `>=8.2 <8.6`
-- **Remote:** `https://github.com/nathanskky/guild-access.git` (HTTPS)
+- **Remote:** `git@github.com:nathanskky/guild-access.git` (SSH), or
+  `https://github.com/nathanskky/guild-access.git` if you don't have SSH keys set up
 - **Default branch:** `develop` (`origin/HEAD` points there). A `main` branch also exists. **Work targets
   `develop`** — see [Branching and pull requests](#branching-and-pull-requests).
 - **`composer.lock` is gitignored** here, so there is no lock to keep in sync.
