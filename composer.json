@@ -30,5 +30,18 @@
         "phpunit/phpunit": "^11.5",
         "phpstan/phpstan": "^2.1",
         "monolog/monolog": "^3.10"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse",
+        "check": [
+            "@test",
+            "@analyse"
+        ]
+    },
+    "scripts-descriptions": {
+        "test": "Run the guild-access test suite (fails if no tests run).",
+        "analyse": "Run PHPStan at level max over src/.",
+        "check": "Run tests then static analysis. Stops at the first failure."
     }
 }
