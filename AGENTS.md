@@ -103,7 +103,8 @@ Layout is **feature-first and deeply nested**, with `Internal/` for classes outs
 class is prefixed `Oidc`; note the directory is `OIDC` (uppercase) while the classes are `Oidc` (studly) —
 PSR-4 resolves on the directory name, so `Guild\Access\Authentication\OIDC\OidcConfiguration`.
 
-**Exception hierarchy is deliberate:** setup errors extend `InvalidArgumentException`; runtime errors form
+**The exception hierarchy has two distinct halves**, and the split is spelled out in the docblock on
+`Exception/OidcConfigurationException.php`: setup errors extend `InvalidArgumentException`; runtime errors form
 a chain rooted at `OidcAuthenticationServiceException`. `OidcConfigurationException` is `final`, but the
 other two are *not* — because one extends the other. Exceptions carry only a docblock and `{}`: no custom
 methods, no named constructors.
@@ -123,12 +124,15 @@ formatter/linter lands in this repo, its config becomes authoritative and this s
 pointer at it.
 
 - **`<?php declare(strict_types=1);` on one line.** Every PHP file in the workspace does this, with no
-  exceptions. It departs from PSR-12 §3 deliberately; an agent that "fixes" it touches every file.
+  exceptions. Note this differs from PSR-12 §3, which puts `declare` on its own line — so don't let a
+  formatter or a well-meaning edit "correct" it, or you will touch every file in the repo.
 - **Empty class/method bodies use hugged `{}`** on the line after the signature. Do not expand them.
-- **Everything here is `final`** (and mostly `final readonly`), unlike `guild/framework`, where only
-  `Application` is final because consumers are expected to extend it. The only non-final classes here are
-  the two exceptions that form an inheritance chain. Do not homogenize the two packages.
-- **Comment density is high, and deliberately so.** This package carries explanatory block comments that
+- **Use `final` and `readonly` where they make sense for the class in front of you** — not to match what
+  neighboring classes or sibling packages happen to do. As it stands the classes here are `final`, mostly
+  `final readonly`, the exceptions being the two that form an inheritance chain. That is the current state,
+  not a policy to conform to. One thing genuinely worth weighing: this is a library, so adding `final` to an
+  already-published class is a breaking change for anyone extending it.
+- **Comment density is high here.** This package carries explanatory block comments that
   record *rationale*, not restatement — the PKCE workaround, the local-only redirect policy, why a strict
   test flag is set. Match that density when editing; a subtle security decision here needs its reason
   written down.
