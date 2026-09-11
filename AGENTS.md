@@ -48,18 +48,20 @@ and `starter/config/authentication.php`.
 Nothing here can be verified before that.
 
 ```bash
-composer install    # required first; see the note below
-composer test       # phpunit, suite "guild-access"
-composer analyse    # phpstan, level max, scoped to src/
-composer check      # test then analyse; stops at the first failure
+composer install       # required first; see the note below
+composer test          # phpunit, suite "guild-access"
+composer analyse       # phpstan, level max, scoped to src/
+composer format:check  # pint, PSR-12 style check (writes nothing)
+composer check         # test, then analyse, then style check; stops at the first failure
 ```
 
 **This package is fully green, and it is the only one in the workspace that is. Keep it that way.**
-On a clean checkout with dependencies installed, both checks pass:
+On a clean checkout with dependencies installed, all three checks pass:
 
 ```
-composer test      →  OK (42 tests, 85 assertions)
-composer analyse   →  [OK] No errors
+composer test          →  OK (42 tests, 85 assertions)
+composer analyse       →  [OK] No errors
+composer format:check  →  {"tool":"pint","result":"passed"}
 ```
 
 That makes the bar here unambiguous: unlike the sibling packages, you do **not** need to take a baseline
@@ -118,15 +120,16 @@ explains why. Read it before changing anything in the client path.
 
 ## Conventions
 
-**Match the file you are editing. Do not reformat existing code as a side effect of your change.** The
-patterns below are *observed*, not a style guide — they emerged organically rather than by decision. When a
-formatter/linter lands in this repo, its config becomes authoritative and this section should shrink to a
-pointer at it.
+**A formatter has landed: Laravel Pint, PSR-12 preset, configured in `pint.json`.** Run `composer format` to
+apply it, `composer format:check` to verify without writing. Its rules are authoritative for anything it
+enforces — don't hand-fix a style issue Pint would catch, and don't fight its output. The patterns below are
+*observed*, not a style guide, and now cover only what Pint doesn't decide.
 
-- **`<?php declare(strict_types=1);` on one line.** Every PHP file in the workspace does this, with no
-  exceptions. Note this differs from PSR-12 §3, which puts `declare` on its own line — so don't let a
-  formatter or a well-meaning edit "correct" it, or you will touch every file in the repo.
-- **Empty class/method bodies use hugged `{}`** on the line after the signature. Do not expand them.
+- **`<?php declare(strict_types=1);` is split onto its own line** (PSR-12 §3) — Pint enforces this. The
+  workspace previously used a one-line `<?php declare(strict_types=1);`, which conflicted with PSR-12; Pint's
+  initial run corrected it everywhere. Don't collapse it back to one line.
+- **Empty class/method bodies are two-line** (`{` then `}` on its own line) — Pint's PSR-12 preset expands
+  what used to be a hugged `{}` on the same line. Don't hand-collapse it back.
 - **Use `final` and `readonly` where they make sense for the class in front of you** — not to match what
   neighboring classes or sibling packages happen to do. As it stands the classes here are `final`, mostly
   `final readonly`, the exceptions being the two that form an inheritance chain. That is the current state,
