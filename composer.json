@@ -29,19 +29,25 @@
     "require-dev": {
         "phpunit/phpunit": "^11.5",
         "phpstan/phpstan": "^2.1",
-        "monolog/monolog": "^3.10"
+        "monolog/monolog": "^3.10",
+        "laravel/pint": "^1.32"
     },
     "scripts": {
         "test": "phpunit",
         "analyse": "phpstan analyse",
+        "format": "pint",
+        "format:check": "pint --test",
         "check": [
             "@test",
-            "@analyse"
+            "@analyse",
+            "@format:check"
         ]
     },
     "scripts-descriptions": {
         "test": "Run the guild-access test suite (fails if no tests run).",
         "analyse": "Run PHPStan at level max over src/.",
-        "check": "Run tests then static analysis. Stops at the first failure."
+        "format": "Auto-fix code style with Pint (PSR-12).",
+        "format:check": "Check code style with Pint (PSR-12) without modifying files.",
+        "check": "Run tests, static analysis, then style check. Stops at the first failure."
     }
 }

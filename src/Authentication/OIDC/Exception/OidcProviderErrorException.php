@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Guild\Access\Authentication\OIDC\Exception;
 
@@ -7,4 +9,5 @@ namespace Guild\Access\Authentication\OIDC\Exception;
  * (e.g. the user denied consent) instead of an authorization code.
  */
 class OidcProviderErrorException extends OidcAuthenticationServiceException
-{}
+{
+}

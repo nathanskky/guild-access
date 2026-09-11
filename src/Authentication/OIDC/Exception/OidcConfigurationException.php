@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Guild\Access\Authentication\OIDC\Exception;
 
@@ -10,4 +12,5 @@ use InvalidArgumentException;
  * from the runtime OidcAuthenticationServiceException hierarchy.
  */
 final class OidcConfigurationException extends InvalidArgumentException
-{}
+{
+}

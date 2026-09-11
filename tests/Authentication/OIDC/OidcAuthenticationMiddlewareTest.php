@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Guild\Access\Test\Authentication\OIDC;
 
@@ -29,7 +31,7 @@ final class OidcAuthenticationMiddlewareTest extends TestCase
      */
     private function handler(): RequestHandlerInterface
     {
-        return new class implements RequestHandlerInterface {
+        return new class () implements RequestHandlerInterface {
             public bool $ran = false;
 
             public function handle(ServerRequestInterface $request): ResponseInterface

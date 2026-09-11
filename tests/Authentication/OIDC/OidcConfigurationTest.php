@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Guild\Access\Test\Authentication\OIDC;
 
@@ -153,7 +155,10 @@ final class OidcConfigurationTest extends TestCase
     public function testLocalDefaultReturnUrlIsAccepted(): void
     {
         self::assertSame('/back', (new OidcConfiguration(
-            'https://idp', 'id', 'secret', defaultReturnUrl: '/back'
+            'https://idp',
+            'id',
+            'secret',
+            defaultReturnUrl: '/back'
         ))->defaultReturnUrl);
     }
 
