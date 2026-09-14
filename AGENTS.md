@@ -27,7 +27,7 @@ ACM/Grouper authorization and IU external (Guest) account support are described 
 
 ## Sibling packages
 
-These four repos are developed side by side but are **four independent git repos**. There is no root
+These repos are developed side by side but are **independent git repos**. There is no root
 `composer.json` and no root git repository, so each is cloned and installed on its own. Do not invent
 root-level tooling or a shared root autoloader.
 
@@ -37,6 +37,7 @@ root-level tooling or a shared root autoloader.
 | `guild/framework` | `Guild\Framework\` | Application kernel / DI container. **Depends on this package** (`^1.0`) and exposes it via `ApplicationBuilder::addAuthentication()` |
 | `guild/starter` | `Guild\Starter\` | Runnable example app. Also depends on this package **directly** (`^1.0`), so a version bump must satisfy two constraints |
 | `iu/notifications` | `IU\Notifications\` | IU Notifications API client. Fully independent — different GitHub host and an incompatible PHP constraint |
+| `guild/rivet` | `Guild\Rivet\` | IU Rivet Design System components for Twig and Latte. Fully independent of this package |
 
 This package has **no first-party dependencies** — it is the bottom of the stack. If you change auth
 behavior, trace the consumer side too: `framework/src/ServiceProvider/AuthenticationServiceProvider.php`
@@ -211,7 +212,7 @@ feature branch  --PR-->  develop  --PR-->  main  --> tag (release)
   accumulated work is ready to release.
 - **Tags are applied to `main`** after that merge. A tag is what makes a release visible to Composer.
 
-This is the intended model across all four Guild packages. Not every package has reached v1 yet, so `main`
+This is the intended model across all the Guild packages. Not every package has reached v1 yet, so `main`
 and tagging are not in use everywhere — but where they are, this is the flow, and new work should assume it.
 
 ## Getting a change to consumers
