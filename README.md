@@ -2,8 +2,10 @@
 
 IU Login (OIDC) authentication service and middleware for PHP.
 
-ACM/Grouper-based authorization and IU external (Guest) account functionality are
-planned for future releases.
+This package does OIDC authentication and nothing else. Group membership and
+authorization are the concern of separate, single-purpose packages.
+
+IU external (Guest) account functionality is planned for a future release.
 
 ## Requirements
 

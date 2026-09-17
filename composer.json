@@ -1,6 +1,6 @@
 {
     "name": "guild/access",
-    "description": "IU Login (OIDC) authentication middleware for PHP; ACM/Grouper authorization and IU external (Guest) account support planned.",
+    "description": "IU Login (OIDC) authentication middleware for PHP; IU external (Guest) account support planned.",
     "type": "library",
     "authors": [
         {

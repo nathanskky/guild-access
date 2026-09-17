@@ -18,8 +18,13 @@ authentication service, and a PSR-15 middleware, built on `jumbojett/openid-conn
   still a valid *deployment-level* auth choice for some apps — see `starter/AGENTS.md` — but it does not
   involve this package.)
 
-ACM/Grouper authorization and IU external (Guest) account support are described as planned in
-`composer.json`, but **no such code exists in this package today**.
+- **Scope is deliberately narrow.** This package does OIDC authentication only. Group membership,
+  Grouper/ACM lookups and authorization are **out of scope** and belong to separate, single-purpose
+  packages — do not add them here. The workspace favours small libraries that compose over one broad
+  auth library.
+
+IU external (Guest) account support is described as planned in `composer.json`, but **no such code
+exists in this package today**.
 
 > **`README.md` is the authoritative reference for this library's public API** — config fields,
 > redirect-safety behavior, session handling, logging, and error types. Read it before touching
