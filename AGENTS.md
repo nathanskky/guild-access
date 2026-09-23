@@ -14,14 +14,13 @@ authentication service, and a PSR-15 middleware, built on `jumbojett/openid-conn
 - **Default branch:** `develop` (`origin/HEAD` points there). A `main` branch also exists. **Work targets
   `develop`** — see [Branching and pull requests](#branching-and-pull-requests).
 - **`composer.lock` is gitignored** here, so there is no lock to keep in sync.
-- **Authentication is OIDC-only.** CAS support was removed from this library. (Apache's `mod_auth_cas` is
-  still a valid *deployment-level* auth choice for some apps — see `starter/AGENTS.md` — but it does not
-  involve this package.)
-
+- **Authentication is OIDC-only.** This library has no CAS support. (Apache's `mod_auth_cas` is a valid
+  *deployment-level* auth choice for some apps — see `starter/AGENTS.md` — but it does not involve this
+  package.)
 - **Scope is deliberately narrow.** This package does OIDC authentication only. Group membership,
-  Grouper/ACM lookups and authorization are **out of scope** and belong to separate, single-purpose
-  packages — do not add them here. The workspace favours small libraries that compose over one broad
-  auth library.
+  Grouper/ACM lookups and authorization are **out of scope** — group lookups belong to `guild/grouper`, and
+  authorization to `guild/framework`'s authorization layer. Do not add them here. The workspace favours
+  small libraries that compose over one broad auth library.
 
 IU external (Guest) account support is described as planned in `composer.json`, but **no such code
 exists in this package today**.
@@ -39,12 +38,13 @@ root-level tooling or a shared root autoloader.
 | Package | Namespace | Role |
 |---|---|---|
 | `guild/access` *(this one)* | `Guild\Access\` | IU Login (OIDC) authentication library |
-| `guild/framework` | `Guild\Framework\` | Application kernel / DI container. **Depends on this package** (`^1.0`) and exposes it via `ApplicationBuilder::addAuthentication()` |
-| `guild/starter` | `Guild\Starter\` | Runnable example app. Also depends on this package **directly** (`^1.0`), so a version bump must satisfy two constraints |
-| `iu/notifications` | `IU\Notifications\` | IU Notifications API client. Fully independent — different GitHub host and an incompatible PHP constraint |
+| `guild/framework` | `Guild\Framework\` | Application kernel / DI container. **The only package that requires this one** (`^1.0`); exposes it via `ApplicationBuilder::addAuthentication()` |
+| `guild/grouper` | `Guild\Grouper\` | Read-only IU Grouper group-membership lookup, used by the framework's authorization layer. Independent of this package |
+| `guild/starter` | `Guild\Starter\` | Runnable example app. Reaches this package **transitively** through `guild/framework`; it declares this repo's VCS repository but does not require the package directly |
+| `iu/notifications` | `IU\Notifications\` | IU Notifications API client. Fully independent — hosted on IU Enterprise GitHub, not github.com |
 | `guild/rivet` | `Guild\Rivet\` | IU Rivet Design System components for Twig and Latte. Fully independent of this package |
 
-This package has **no first-party dependencies** — it is the bottom of the stack. If you change auth
+This package has **no first-party dependencies** — it sits at the bottom of the stack. If you change auth
 behavior, trace the consumer side too: `framework/src/ServiceProvider/AuthenticationServiceProvider.php`
 and `starter/config/authentication.php`.
 
@@ -61,7 +61,7 @@ composer format:check  # pint, PSR-12 style check (writes nothing)
 composer check         # test, then analyse, then style check; stops at the first failure
 ```
 
-**This package is fully green, and it is the only one in the workspace that is. Keep it that way.**
+**This package is fully green. Keep it that way.**
 On a clean checkout with dependencies installed, all three checks pass:
 
 ```
@@ -70,10 +70,9 @@ composer analyse       →  [OK] No errors
 composer format:check  →  {"tool":"pint","result":"passed"}
 ```
 
-That makes the bar here unambiguous: unlike the sibling packages, you do **not** need to take a baseline
-first to tell your failures from pre-existing ones. Any failure is yours. Note that PHPStan runs at level
-`max` — the strictest setting in the workspace — so it will reject imprecise types that `framework` (10) or
-`notification` (5) would let through.
+That makes the bar here unambiguous: unlike `framework` and `notification`, you do **not** need to take a
+baseline first to tell your failures from pre-existing ones. Any failure is yours. Note that PHPStan runs at
+level `max`, so it will reject imprecise types that `notification` (level 5) would let through.
 
 **If `composer install` fails to authenticate against github.com**, that is a credential problem on your
 machine, not a repository problem. Composer downloads dependency archives through the GitHub API and needs a
@@ -121,8 +120,11 @@ methods, no named constructors.
 (`requireAuthentication()`, `logout()`, with `logout(): never`) and a modern PSR-7-returning style
 (`guard()`, `logoutResponse()`). Prefer the modern one in new code.
 
-`CapturingOidcClient` exists to work around IU's discovery document around PKCE; its 22-line class docblock
-explains why. Read it before changing anything in the client path.
+`CapturingOidcClient` exists so the PSR-7 style can work at all: it overrides jumbojett's `redirect()` to
+capture the URL instead of calling `header()` + `exit`; its class docblock explains the mechanics. The
+separate PKCE workaround — IU's discovery document omits `code_challenge_methods_supported`, so jumbojett
+would silently skip PKCE — is injected in `OidcAuthenticationService`'s constructor, with its own comment.
+Read both before changing anything in the client path.
 
 ## Conventions
 
@@ -140,8 +142,8 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
   record *rationale*, not restatement — the PKCE workaround, the local-only redirect policy, why a strict
   test flag is set. Match that density when editing; a subtle security decision here needs its reason
   written down.
-- **PHPStan level is `max` here** — the strictest in the workspace (`framework` is 10, `notification` is 5,
-  `starter` has none). Do not assume one bar.
+- **PHPStan level is `max` here**, as in `grouper` and `rivet`. `framework` runs at 10 (the same ceiling
+  on PHPStan 2.x), `notification` at 5, and `starter` has none. Do not assume one bar.
 
 **Test conventions — `tests/` here is the reference suite for the whole workspace.** 4 files covering
 `Authentication/OIDC/**`, namespaced `Guild\Access\Test\` mirroring `src/`. If you need a model for how to
@@ -217,18 +219,18 @@ feature branch  --PR-->  develop  --PR-->  main  --> tag (release)
   accumulated work is ready to release.
 - **Tags are applied to `main`** after that merge. A tag is what makes a release visible to Composer.
 
-This is the intended model across all the Guild packages. Not every package has reached v1 yet, so `main`
-and tagging are not in use everywhere — but where they are, this is the flow, and new work should assume it.
+This is the intended model across all the Guild packages. `main` and tagging are in use here, in
+`grouper` and in `notification`; `framework`, `rivet` and `starter` do not tag releases yet. Where tagging
+is in use, this is the flow, and new work should assume it.
 
 ## Getting a change to consumers
 
 Consumers pull this package as a *downloaded zipball* from GitHub — there is no path repository and no
 symlink. Editing `src/` here changes nothing in `framework` or `starter`, silently.
 
-**This package is the one with a tag constraint, which makes it the fiddliest to publish.** Both
-`guild/framework` and `guild/starter` require `^1.0` — a *tag* constraint, not a branch — so merging your
-feature PR is **not enough**. A change only becomes visible to consumers once it is tagged, and tags are
-cut from `main`:
+**This package is consumed through a tag constraint, which makes it fiddly to publish.** `guild/framework`
+requires `^1.0` — a *tag* constraint, not a branch — so merging your feature PR is **not enough**. A change
+only becomes visible to consumers once it is tagged, and tags are cut from `main`:
 
 1. Land your change on `develop` via a pull request.
 2. **Merge `develop` into `main` via its own pull request** when the accumulated work is ready to release.
@@ -237,8 +239,8 @@ cut from `main`:
    git checkout main && git pull
    git tag <next-version> && git push --tags
    ```
-4. In each consumer, `composer update guild/access`. Remember `starter` requires it *directly* as well as
-   transitively through `framework`, so both constraints must be satisfiable.
+4. In each consumer, `composer update guild/access`. In `starter`, which reaches this package only through
+   `framework`, name both: `composer update guild/framework guild/access`.
 
 Steps 2 and 3 are release activities, not part of shipping a feature — so **"merged into `develop`" and
 "released" are two different states**, usually separated in time. A consumer that appears not to see your

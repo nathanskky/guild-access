@@ -3,7 +3,8 @@
 IU Login (OIDC) authentication service and middleware for PHP.
 
 This package does OIDC authentication and nothing else. Group membership and
-authorization are the concern of separate, single-purpose packages.
+authorization are the concern of separate, single-purpose packages (group lookups
+live in `guild/grouper`).
 
 IU external (Guest) account functionality is planned for a future release.
 
@@ -55,7 +56,7 @@ $config = new OidcConfiguration(
 | `redirectUri` | `string` | `''` | Registered redirect URI; must be an `https` URL when set. Empty = auto-derived from the request. |
 | `scopes` | `string[]` | `[]` | Extra scopes; `openid` is always included. |
 | `codeChallengeMethod` | `string` | `'S256'` | PKCE method: `'S256'`, `'plain'`, or `''` to disable. |
-| `defaultReturnUrl` | `string` | `'/'` | Where to land after login if no original URL was captured. Must be a local path beginning with `/`. |
+| `defaultReturnUrl` | `string` | `'/'` | Fallback landing after login or logout when no usable local target exists. Must be a local path beginning with `/`. |
 
 Invalid configuration throws `OidcConfigurationException`.
 
@@ -66,7 +67,8 @@ Redirect targets this library emits (post-login landing, post-logout landing) ar
 
 - **Relative paths** (`/dashboard`) are allowed.
 - **Anything else** — absolute URLs, protocol-relative (`//host`), backslash tricks — is
-  ignored and falls back to `defaultReturnUrl` (logged if a logger is set).
+  ignored and falls back to `defaultReturnUrl` (a rejected logout target is logged as a
+  warning if a logger is set).
 - RP-initiated logout does **not** send a `post_logout_redirect_uri` (that would have to be
   absolute), so after the IdP logs the user out they land on the IdP's own logout page. When
   there is no IdP session to end, logout redirects to the local target (or `defaultReturnUrl`).
